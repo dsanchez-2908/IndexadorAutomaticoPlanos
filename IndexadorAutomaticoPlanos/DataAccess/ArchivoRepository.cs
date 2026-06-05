@@ -272,7 +272,7 @@ namespace IndexadorAutomaticoPlanos.DataAccess
             };
         }
 
-        private List<Archivo> MapearListaArchivos(DataTable dt)
+        public List<Archivo> MapearListaArchivos(DataTable dt)
         {
             List<Archivo> archivos = new List<Archivo>();
             foreach (DataRow row in dt.Rows)

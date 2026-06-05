@@ -234,6 +234,44 @@ namespace IndexadorAutomaticoPlanos.UI
             }
         }
 
+        private void menuPreparacionLotes_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FrmPreparacionLotes frmPreparacionLotes = new FrmPreparacionLotes();
+                AbrirFormularioHijo(frmPreparacionLotes);
+                Logger.Info("Abriendo formulario de preparación de lotes", "FrmPrincipal");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error al abrir formulario de preparación de lotes", ex, "FrmPrincipal");
+                MessageBox.Show(
+                    $"Error al abrir el formulario de preparación de lotes:\n\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void menuPreparacionImagenes_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FrmPreparacionImagenes frmPreparacionImagenes = new FrmPreparacionImagenes();
+                AbrirFormularioHijo(frmPreparacionImagenes);
+                Logger.Info("Abriendo formulario de preparación de imágenes", "FrmPrincipal");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error al abrir formulario de preparación de imágenes", ex, "FrmPrincipal");
+                MessageBox.Show(
+                    $"Error al abrir el formulario de preparación de imágenes:\n\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         /// <summary>
         /// Método auxiliar para abrir formularios MDI hijos (evita duplicados)
         /// </summary>

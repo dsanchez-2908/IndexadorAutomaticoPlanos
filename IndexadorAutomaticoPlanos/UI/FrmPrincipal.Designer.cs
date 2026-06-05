@@ -121,12 +121,14 @@ namespace IndexadorAutomaticoPlanos.UI
             this.menuPreparacionLotes.Name = "menuPreparacionLotes";
             this.menuPreparacionLotes.Size = new System.Drawing.Size(215, 22);
             this.menuPreparacionLotes.Text = "2. Preparación de Lotes";
+            this.menuPreparacionLotes.Click += new System.EventHandler(this.menuPreparacionLotes_Click);
             // 
             // menuPreparacionImagenes
             // 
             this.menuPreparacionImagenes.Name = "menuPreparacionImagenes";
             this.menuPreparacionImagenes.Size = new System.Drawing.Size(215, 22);
             this.menuPreparacionImagenes.Text = "3. Preparación de Imágenes";
+            this.menuPreparacionImagenes.Click += new System.EventHandler(this.menuPreparacionImagenes_Click);
             // 
             // menuProcesamientoIA
             // 
