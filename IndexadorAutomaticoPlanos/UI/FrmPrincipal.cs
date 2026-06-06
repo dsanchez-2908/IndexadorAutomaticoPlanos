@@ -272,6 +272,25 @@ namespace IndexadorAutomaticoPlanos.UI
             }
         }
 
+        private void menuProcesamientoIA_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FrmProcesamientoIA frmProcesamientoIA = new FrmProcesamientoIA();
+                AbrirFormularioHijo(frmProcesamientoIA);
+                Logger.Info("Abriendo formulario de procesamiento por OpenAI", "FrmPrincipal");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error al abrir formulario de procesamiento por OpenAI", ex, "FrmPrincipal");
+                MessageBox.Show(
+                    $"Error al abrir el formulario de procesamiento por OpenAI:\n\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         /// <summary>
         /// Método auxiliar para abrir formularios MDI hijos (evita duplicados)
         /// </summary>

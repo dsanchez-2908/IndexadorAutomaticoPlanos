@@ -135,6 +135,7 @@ namespace IndexadorAutomaticoPlanos.UI
             this.menuProcesamientoIA.Name = "menuProcesamientoIA";
             this.menuProcesamientoIA.Size = new System.Drawing.Size(215, 22);
             this.menuProcesamientoIA.Text = "4. Procesamiento OpenAI";
+            this.menuProcesamientoIA.Click += new System.EventHandler(this.menuProcesamientoIA_Click);
             // 
             // menuValidacionLotes
             // 
