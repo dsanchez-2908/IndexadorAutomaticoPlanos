@@ -202,10 +202,10 @@ namespace IndexadorAutomaticoPlanos.UI
             this.pnlInferior.Controls.Add(this.btnRefrescar);
             this.pnlInferior.Controls.Add(this.btnProcesar);
             this.pnlInferior.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.pnlInferior.Location = new System.Drawing.Point(0, 700);
+            this.pnlInferior.Location = new System.Drawing.Point(0, 680);
             this.pnlInferior.Name = "pnlInferior";
             this.pnlInferior.Padding = new System.Windows.Forms.Padding(10);
-            this.pnlInferior.Size = new System.Drawing.Size(1200, 100);
+            this.pnlInferior.Size = new System.Drawing.Size(1200, 120);
             this.pnlInferior.TabIndex = 3;
             // 
             // lblEstado
@@ -238,7 +238,7 @@ namespace IndexadorAutomaticoPlanos.UI
             this.btnRefrescar.ForeColor = System.Drawing.Color.White;
             this.btnRefrescar.Location = new System.Drawing.Point(842, 65);
             this.btnRefrescar.Name = "btnRefrescar";
-            this.btnRefrescar.Size = new System.Drawing.Size(160, 25);
+            this.btnRefrescar.Size = new System.Drawing.Size(160, 40);
             this.btnRefrescar.TabIndex = 1;
             this.btnRefrescar.Text = "Refrescar";
             this.btnRefrescar.UseVisualStyleBackColor = false;
@@ -253,7 +253,7 @@ namespace IndexadorAutomaticoPlanos.UI
             this.btnProcesar.ForeColor = System.Drawing.Color.White;
             this.btnProcesar.Location = new System.Drawing.Point(1008, 65);
             this.btnProcesar.Name = "btnProcesar";
-            this.btnProcesar.Size = new System.Drawing.Size(179, 25);
+            this.btnProcesar.Size = new System.Drawing.Size(179, 40);
             this.btnProcesar.TabIndex = 0;
             this.btnProcesar.Text = "Procesar Seleccionados";
             this.btnProcesar.UseVisualStyleBackColor = false;

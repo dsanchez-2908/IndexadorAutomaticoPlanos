@@ -409,8 +409,10 @@ namespace IndexadorAutomaticoPlanos.DataAccess
             {
                 CdLote = Convert.ToInt32(row["cdLote"]),
                 DsNombreLote = row["dsNombreLote"].ToString() ?? string.Empty,
+                DsCarpetaOrigen = row.Table.Columns.Contains("dsCarpetaOrigen") ? row["dsCarpetaOrigen"]?.ToString() : null,
                 CdEstadoLote = Convert.ToInt32(row["cdEstadoLote"]),
-                NuCantidadArchivos = Convert.ToInt32(row["nuCantidadArchivos"]),
+                NuCantidadArchivos = row.Table.Columns.Contains("nuCantidadArchivos") ? Convert.ToInt32(row["nuCantidadArchivos"]) : 0,
+                CantidadArchivos = row.Table.Columns.Contains("CantidadArchivos") ? Convert.ToInt32(row["CantidadArchivos"]) : 0,
                 FeAlta = Convert.ToDateTime(row["feAlta"]),
                 CdUsuarioAlta = Convert.ToInt32(row["cdUsuarioAlta"]),
                 FeUltimaModificacion = row["feUltimaModificacion"] != DBNull.Value ? Convert.ToDateTime(row["feUltimaModificacion"]) : null,
@@ -671,7 +673,7 @@ namespace IndexadorAutomaticoPlanos.DataAccess
                         la.dsRutaImagenJpg, la.txImagenBase64, la.txResultadoOcr, la.snTieneOcr,
                         la.nuDpiProcesamiento, la.dsEsquinaRecorte, 
                         la.nuPorcentajeRecorteHorizontal, la.nuPorcentajeRecorteVertical,
-                        a.dsNombreArchivo, a.dsRutaCompleta, a.nuCantidadPaginas,
+                        a.dsNombreArchivo,
                         e.dsEstado AS DsEstadoArchivoLote
                     FROM IAP_TD_LOTE_ARCHIVOS la
                     INNER JOIN IAP_TD_ARCHIVOS a ON la.cdArchivo = a.cdArchivo
@@ -685,9 +687,34 @@ namespace IndexadorAutomaticoPlanos.DataAccess
                 var archivos = new List<LoteArchivo>();
                 foreach (DataRow row in dt.Rows)
                 {
-                    var archivo = MapearLoteArchivo(row);
-                    // Construir ruta completa del archivo
-                    archivo.DsRutaCompletaArchivo = row["dsRutaCompleta"].ToString() + "\\" + row["dsNombreArchivo"].ToString();
+                    // Mapeo específico para procesamiento IA (sin campos innecesarios)
+                    var archivo = new LoteArchivo
+                    {
+                        CdLoteArchivo = Convert.ToInt32(row["cdLoteArchivo"]),
+                        CdLote = Convert.ToInt32(row["cdLote"]),
+                        CdArchivo = Convert.ToInt32(row["cdArchivo"]),
+                        CdEstadoArchivoLote = Convert.ToInt32(row["cdEstadoArchivoLote"]),
+                        NuOrden = row["nuOrden"] != DBNull.Value ? Convert.ToInt32(row["nuOrden"]) : null,
+                        FeAlta = Convert.ToDateTime(row["feAlta"]),
+                        CdUsuarioAlta = Convert.ToInt32(row["cdUsuarioAlta"]),
+                        FeUltimaModificacion = row["feUltimaModificacion"] != DBNull.Value ? Convert.ToDateTime(row["feUltimaModificacion"]) : null,
+                        CdUsuarioModificacion = row["cdUsuarioModificacion"] != DBNull.Value ? Convert.ToInt32(row["cdUsuarioModificacion"]) : null,
+
+                        // Campos de procesamiento de imagen (Fase 4)
+                        DsRutaImagenJpg = row["dsRutaImagenJpg"]?.ToString(),
+                        TxImagenBase64 = row["txImagenBase64"]?.ToString(),
+                        TxResultadoOcr = row["txResultadoOcr"]?.ToString(),
+                        SnTieneOcr = row["snTieneOcr"] != DBNull.Value && Convert.ToBoolean(row["snTieneOcr"]),
+                        NuDpiProcesamiento = row["nuDpiProcesamiento"] != DBNull.Value ? Convert.ToInt32(row["nuDpiProcesamiento"]) : null,
+                        DsEsquinaRecorte = row["dsEsquinaRecorte"]?.ToString(),
+                        NuPorcentajeRecorteHorizontal = row["nuPorcentajeRecorteHorizontal"] != DBNull.Value ? Convert.ToDecimal(row["nuPorcentajeRecorteHorizontal"]) : null,
+                        NuPorcentajeRecorteVertical = row["nuPorcentajeRecorteVertical"] != DBNull.Value ? Convert.ToDecimal(row["nuPorcentajeRecorteVertical"]) : null,
+
+                        // Campos de navegación necesarios para IA
+                        DsEstadoArchivoLote = row["DsEstadoArchivoLote"]?.ToString(),
+                        DsNombreArchivo = row["dsNombreArchivo"]?.ToString()
+                    };
+
                     archivos.Add(archivo);
                 }
 
@@ -857,6 +884,7 @@ namespace IndexadorAutomaticoPlanos.DataAccess
         {
             try
             {
+                // Primero intentar búsqueda exacta
                 string query = @"
                     SELECT cdEstadoArchivoLote 
                     FROM IAP_TV_ESTADOS_ARCHIVO_LOTE 
@@ -865,17 +893,493 @@ namespace IndexadorAutomaticoPlanos.DataAccess
                 object? resultado = _db.EjecutarEscalar(query,
                     DatabaseHelper.CrearParametro("@nombreEstado", nombreEstado));
 
+                if (resultado != null && resultado != DBNull.Value)
+                {
+                    return Convert.ToInt32(resultado);
+                }
+
+                // Si no encuentra, intentar búsqueda flexible (por si hay problemas de codificación)
+                // Usar LIKE y remover acentos para comparar
+                string queryFlexible = @"
+                    SELECT cdEstadoArchivoLote 
+                    FROM IAP_TV_ESTADOS_ARCHIVO_LOTE 
+                    WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                            dsEstado COLLATE Modern_Spanish_CI_AI,
+                            'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')
+                        LIKE 
+                          REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                            @nombreEstado COLLATE Modern_Spanish_CI_AI,
+                            'á', 'a'), 'é', 'e'), 'í', 'i'), 'ó', 'o'), 'ú', 'u')";
+
+                resultado = _db.EjecutarEscalar(queryFlexible,
+                    DatabaseHelper.CrearParametro("@nombreEstado", nombreEstado));
+
                 if (resultado == null || resultado == DBNull.Value)
                 {
                     throw new Exception($"No se encontró el estado de archivo '{nombreEstado}'");
                 }
 
+                Logger.Warning($"Estado '{nombreEstado}' encontrado con búsqueda flexible (posible problema de codificación)", "LoteRepository");
                 return Convert.ToInt32(resultado);
             }
             catch (Exception ex)
             {
                 Logger.Error($"Error al obtener ID del estado '{nombreEstado}'", ex, "LoteRepository");
                 throw;
+            }
+        }
+
+        #endregion
+
+        #region Métodos para Control de Calidad (Fase 6)
+
+        /// <summary>
+        /// Obtiene los lotes pendientes de control de calidad (Estado 3)
+        /// </summary>
+        public List<Lote> ObtenerLotesPendientesControlCalidad()
+        {
+            try
+            {
+                string query = @"
+                    SELECT 
+                        l.cdLote, l.dsNombreLote, l.cdEstadoLote, l.nuCantidadArchivos,
+                        l.feAlta, l.cdUsuarioAlta, l.feUltimaModificacion, l.cdUsuarioModificacion,
+                        e.dsEstado AS DsEstadoLote
+                    FROM IAP_TD_LOTES l
+                    INNER JOIN IAP_TV_ESTADOS_LOTE e ON l.cdEstadoLote = e.cdEstadoLote
+                    WHERE l.cdEstadoLote = 3
+                    ORDER BY l.feAlta";
+
+                DataTable dt = _db.EjecutarConsulta(query);
+                return MapearListaLotes(dt);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error al obtener lotes pendientes de control de calidad", ex, "LoteRepository");
+                throw new Exception($"Error al obtener lotes pendientes de control: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Obtiene los archivos de un lote con sus resultados de IA para control de calidad
+        /// </summary>
+        public List<ArchivoConResultadoIA> ObtenerArchivosConResultadosIA(int cdLote)
+        {
+            try
+            {
+                string query = @"
+                    SELECT 
+                        la.cdLoteArchivo, la.cdLote, la.cdArchivo, la.cdEstadoArchivoLote,
+                        la.nuOrden, la.dsRutaImagenJpg,
+                        a.dsNombreArchivo,
+                        ea.dsEstado AS DsEstadoArchivoLote,
+                        r.cdResultadoIA,
+                        r.dsTipoPlano, r.dsExpediente, r.dsSeccion, r.dsManzana, r.dsParcela, r.dsDireccion,
+                        r.nuConfianzaTipoPlano, r.nuConfianzaExpediente, r.nuConfianzaSeccion,
+                        r.nuConfianzaManzana, r.nuConfianzaParcela, r.nuConfianzaDireccion,
+                        r.dsModalidadProcesamiento, r.nuIntentos
+                    FROM IAP_TD_LOTE_ARCHIVOS la
+                    INNER JOIN IAP_TD_ARCHIVOS a ON la.cdArchivo = a.cdArchivo
+                    INNER JOIN IAP_TV_ESTADOS_ARCHIVO_LOTE ea ON la.cdEstadoArchivoLote = ea.cdEstadoArchivoLote
+                    LEFT JOIN IAP_TD_RESULTADOS_IA r ON la.cdLoteArchivo = r.cdLoteArchivo
+                    WHERE la.cdLote = @cdLote
+                    ORDER BY la.nuOrden, la.cdLoteArchivo";
+
+                DataTable dt = _db.EjecutarConsulta(query,
+                    DatabaseHelper.CrearParametro("@cdLote", cdLote));
+
+                var archivos = new List<ArchivoConResultadoIA>();
+                foreach (DataRow row in dt.Rows)
+                {
+                    var archivo = new ArchivoConResultadoIA
+                    {
+                        // Datos del archivo
+                        CdLoteArchivo = Convert.ToInt32(row["cdLoteArchivo"]),
+                        CdLote = Convert.ToInt32(row["cdLote"]),
+                        CdArchivo = Convert.ToInt32(row["cdArchivo"]),
+                        CdEstadoArchivoLote = Convert.ToInt32(row["cdEstadoArchivoLote"]),
+                        NuOrden = row["nuOrden"] != DBNull.Value ? Convert.ToInt32(row["nuOrden"]) : null,
+                        DsRutaImagenJpg = row["dsRutaImagenJpg"]?.ToString(),
+                        DsNombreArchivo = row["dsNombreArchivo"]?.ToString(),
+                        DsEstadoArchivoLote = row["DsEstadoArchivoLote"]?.ToString(),
+
+                        // Resultado de IA (puede ser null si no se procesó)
+                        CdResultadoIA = row["cdResultadoIA"] != DBNull.Value ? Convert.ToInt32(row["cdResultadoIA"]) : null,
+                        DsTipoPlano = row["dsTipoPlano"]?.ToString(),
+                        DsExpediente = row["dsExpediente"]?.ToString(),
+                        DsSeccion = row["dsSeccion"]?.ToString(),
+                        DsManzana = row["dsManzana"]?.ToString(),
+                        DsParcela = row["dsParcela"]?.ToString(),
+                        DsDireccion = row["dsDireccion"]?.ToString(),
+                        NuConfianzaTipoPlano = row["nuConfianzaTipoPlano"] != DBNull.Value ? Convert.ToDecimal(row["nuConfianzaTipoPlano"]) : null,
+                        NuConfianzaExpediente = row["nuConfianzaExpediente"] != DBNull.Value ? Convert.ToDecimal(row["nuConfianzaExpediente"]) : null,
+                        NuConfianzaSeccion = row["nuConfianzaSeccion"] != DBNull.Value ? Convert.ToDecimal(row["nuConfianzaSeccion"]) : null,
+                        NuConfianzaManzana = row["nuConfianzaManzana"] != DBNull.Value ? Convert.ToDecimal(row["nuConfianzaManzana"]) : null,
+                        NuConfianzaParcela = row["nuConfianzaParcela"] != DBNull.Value ? Convert.ToDecimal(row["nuConfianzaParcela"]) : null,
+                        NuConfianzaDireccion = row["nuConfianzaDireccion"] != DBNull.Value ? Convert.ToDecimal(row["nuConfianzaDireccion"]) : null,
+                        DsModalidadProcesamiento = row["dsModalidadProcesamiento"]?.ToString(),
+                        NuIntentos = row["nuIntentos"] != DBNull.Value ? Convert.ToInt32(row["nuIntentos"]) : null
+                    };
+
+                    archivos.Add(archivo);
+                }
+
+                return archivos;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error al obtener archivos con resultados IA del lote {cdLote}", ex, "LoteRepository");
+                throw new Exception($"Error al obtener archivos del lote: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Actualiza los campos corregidos manualmente de un resultado de IA
+        /// </summary>
+        public void ActualizarResultadoIA(ResultadoIA resultado)
+        {
+            try
+            {
+                string query = @"
+                    UPDATE IAP_TD_RESULTADOS_IA
+                    SET dsTipoPlano = @dsTipoPlano,
+                        dsExpediente = @dsExpediente,
+                        dsSeccion = @dsSeccion,
+                        dsManzana = @dsManzana,
+                        dsParcela = @dsParcela,
+                        dsDireccion = @dsDireccion,
+                        feUltimaModificacion = GETDATE(),
+                        cdUsuarioModificacion = @cdUsuarioModificacion
+                    WHERE cdResultadoIA = @cdResultadoIA";
+
+                _db.EjecutarComando(query,
+                    DatabaseHelper.CrearParametro("@cdResultadoIA", resultado.CdResultadoIA),
+                    DatabaseHelper.CrearParametro("@dsTipoPlano", (object?)resultado.DsTipoPlano ?? DBNull.Value),
+                    DatabaseHelper.CrearParametro("@dsExpediente", (object?)resultado.DsExpediente ?? DBNull.Value),
+                    DatabaseHelper.CrearParametro("@dsSeccion", (object?)resultado.DsSeccion ?? DBNull.Value),
+                    DatabaseHelper.CrearParametro("@dsManzana", (object?)resultado.DsManzana ?? DBNull.Value),
+                    DatabaseHelper.CrearParametro("@dsParcela", (object?)resultado.DsParcela ?? DBNull.Value),
+                    DatabaseHelper.CrearParametro("@dsDireccion", (object?)resultado.DsDireccion ?? DBNull.Value),
+                    DatabaseHelper.CrearParametro("@cdUsuarioModificacion", resultado.CdUsuarioModificacion));
+
+                Logger.Info($"Resultado IA actualizado: {resultado.CdResultadoIA}", "LoteRepository");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error al actualizar resultado IA {resultado.CdResultadoIA}", ex, "LoteRepository");
+                throw new Exception($"Error al actualizar resultado: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Marca un archivo como controlado
+        /// </summary>
+        public void MarcarArchivoComoControlado(int cdLoteArchivo, int cdUsuario)
+        {
+            try
+            {
+                string query = @"
+                    UPDATE IAP_TD_LOTE_ARCHIVOS
+                    SET cdEstadoArchivoLote = @cdEstadoArchivoLote,
+                        feUltimaModificacion = GETDATE(),
+                        cdUsuarioModificacion = @cdUsuarioModificacion
+                    WHERE cdLoteArchivo = @cdLoteArchivo";
+
+                _db.EjecutarComando(query,
+                    DatabaseHelper.CrearParametro("@cdLoteArchivo", cdLoteArchivo),
+                    DatabaseHelper.CrearParametro("@cdEstadoArchivoLote", EstadosArchivoLote.Controlado),
+                    DatabaseHelper.CrearParametro("@cdUsuarioModificacion", cdUsuario));
+
+                Logger.Info($"Archivo {cdLoteArchivo} marcado como controlado", "LoteRepository");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error al marcar archivo {cdLoteArchivo} como controlado", ex, "LoteRepository");
+                throw new Exception($"Error al marcar archivo como controlado: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Marca un archivo como carátula ilegible
+        /// </summary>
+        public void MarcarArchivoComoIlegible(int cdLoteArchivo, int cdUsuario)
+        {
+            try
+            {
+                string query = @"
+                    UPDATE IAP_TD_LOTE_ARCHIVOS
+                    SET cdEstadoArchivoLote = @cdEstadoArchivoLote,
+                        feUltimaModificacion = GETDATE(),
+                        cdUsuarioModificacion = @cdUsuarioModificacion
+                    WHERE cdLoteArchivo = @cdLoteArchivo";
+
+                _db.EjecutarComando(query,
+                    DatabaseHelper.CrearParametro("@cdLoteArchivo", cdLoteArchivo),
+                    DatabaseHelper.CrearParametro("@cdEstadoArchivoLote", EstadosArchivoLote.CaratulaIlegible),
+                    DatabaseHelper.CrearParametro("@cdUsuarioModificacion", cdUsuario));
+
+                Logger.Info($"Archivo {cdLoteArchivo} marcado como ilegible", "LoteRepository");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error al marcar archivo {cdLoteArchivo} como ilegible", ex, "LoteRepository");
+                throw new Exception($"Error al marcar archivo como ilegible: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Finaliza el control de un lote, cambiándolo a estado 4 (Pendiente de Finalizar)
+        /// NOTA: Permite finalizar aunque haya archivos pendientes (el control puede ser parcial)
+        /// </summary>
+        public bool FinalizarControlLote(int cdLote, int cdUsuarioModificacion, out string mensaje)
+        {
+            try
+            {
+                // Actualizar estado del lote a "Pendiente de Finalizar" (4)
+                string queryActualizar = @"
+                    UPDATE IAP_TD_LOTES 
+                    SET cdEstadoLote = @estadoPendienteFinalizar,
+                        feUltimaModificacion = GETDATE(),
+                        cdUsuarioModificacion = @cdUsuarioModificacion
+                    WHERE cdLote = @cdLote";
+
+                _db.EjecutarComando(queryActualizar,
+                    DatabaseHelper.CrearParametro("@cdLote", cdLote),
+                    DatabaseHelper.CrearParametro("@estadoPendienteFinalizar", EstadosLote.PendienteFinalizar),
+                    DatabaseHelper.CrearParametro("@cdUsuarioModificacion", cdUsuarioModificacion));
+
+                mensaje = $"Lote {cdLote} finalizado exitosamente";
+                Logger.Info(mensaje, "LoteRepository");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error al finalizar control del lote {cdLote}", ex, "LoteRepository");
+                mensaje = $"Error al finalizar lote: {ex.Message}";
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Obtiene estadísticas de control de un lote
+        /// </summary>
+        public (int Total, int Controlados, int Ilegibles, int Pendientes) ObtenerEstadisticasLote(int cdLote)
+        {
+            try
+            {
+                string query = @"
+                    SELECT 
+                        COUNT(*) AS Total,
+                        SUM(CASE WHEN la.cdEstadoArchivoLote = @estadoControlado THEN 1 ELSE 0 END) AS Controlados,
+                        SUM(CASE WHEN la.cdEstadoArchivoLote = @estadoIlegible THEN 1 ELSE 0 END) AS Ilegibles,
+                        SUM(CASE WHEN la.cdEstadoArchivoLote NOT IN (@estadoControlado, @estadoIlegible) THEN 1 ELSE 0 END) AS Pendientes
+                    FROM IAP_TD_LOTE_ARCHIVOS la
+                    WHERE la.cdLote = @cdLote";
+
+                DataTable dt = _db.EjecutarConsulta(query,
+                    DatabaseHelper.CrearParametro("@cdLote", cdLote),
+                    DatabaseHelper.CrearParametro("@estadoControlado", EstadosArchivoLote.Controlado),
+                    DatabaseHelper.CrearParametro("@estadoIlegible", EstadosArchivoLote.CaratulaIlegible));
+
+                if (dt.Rows.Count > 0)
+                {
+                    DataRow row = dt.Rows[0];
+                    return (
+                        Convert.ToInt32(row["Total"]),
+                        Convert.ToInt32(row["Controlados"]),
+                        Convert.ToInt32(row["Ilegibles"]),
+                        Convert.ToInt32(row["Pendientes"])
+                    );
+                }
+
+                return (0, 0, 0, 0);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error al obtener estadísticas del lote {cdLote}", ex, "LoteRepository");
+                throw new Exception($"Error al obtener estadísticas: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Obtiene todos los tipos de plano activos
+        /// </summary>
+        public List<TipoPlano> ObtenerTiposPlano()
+        {
+            try
+            {
+                string query = @"
+                    SELECT cdTipoPlano, dsTipoPlano, dsDescripcion, snActivo, feAlta
+                    FROM IAP_TV_TIPOS_PLANO
+                    WHERE snActivo = 1
+                    ORDER BY dsTipoPlano";
+
+                DataTable dt = _db.EjecutarConsulta(query);
+
+                var tipos = new List<TipoPlano>();
+                foreach (DataRow row in dt.Rows)
+                {
+                    tipos.Add(new TipoPlano
+                    {
+                        CdTipoPlano = Convert.ToInt32(row["cdTipoPlano"]),
+                        DsTipoPlano = row["dsTipoPlano"].ToString() ?? string.Empty,
+                        DsDescripcion = row["dsDescripcion"]?.ToString(),
+                        SnActivo = Convert.ToBoolean(row["snActivo"]),
+                        FeAlta = Convert.ToDateTime(row["feAlta"])
+                    });
+                }
+
+                return tipos;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error al obtener tipos de plano", ex, "LoteRepository");
+                throw new Exception($"Error al obtener tipos de plano: {ex.Message}", ex);
+            }
+        }
+
+        #endregion
+
+        #region Finalización de Lotes
+
+        /// <summary>
+        /// Obtiene lotes en estado "Pendiente de Finalizar" (cdEstadoLote = 5)
+        /// </summary>
+        public List<Lote> ObtenerLotesPendientesFinalizacion()
+        {
+            try
+            {
+                string query = @"
+                    SELECT 
+                        l.cdLote, l.dsNombreLote, l.dsCarpetaOrigen, l.cdEstadoLote,
+                        l.feAlta, l.cdUsuarioAlta, l.feUltimaModificacion, l.cdUsuarioModificacion,
+                        el.dsEstado AS DsEstadoLote,
+                        COUNT(la.cdLoteArchivo) AS CantidadArchivos
+                    FROM IAP_TD_LOTES l
+                    INNER JOIN IAP_TV_ESTADOS_LOTE el ON l.cdEstadoLote = el.cdEstadoLote
+                    LEFT JOIN IAP_TD_LOTE_ARCHIVOS la ON l.cdLote = la.cdLote
+                    WHERE l.cdEstadoLote = 4
+                    GROUP BY l.cdLote, l.dsNombreLote, l.dsCarpetaOrigen, l.cdEstadoLote,
+                             l.feAlta, l.cdUsuarioAlta, l.feUltimaModificacion, l.cdUsuarioModificacion,
+                             el.dsEstado
+                    ORDER BY l.feAlta DESC";
+
+                DataTable dt = _db.EjecutarConsulta(query);
+                return MapearListaLotes(dt);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error al obtener lotes pendientes de finalización", ex, "LoteRepository");
+                throw new Exception($"Error al obtener lotes: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Obtiene archivos de un lote con todos sus metadatos para finalización
+        /// Incluye información de ResultadoIA y estado del archivo
+        /// </summary>
+        public List<ArchivoParaFinalizar> ObtenerArchivosParaFinalizacion(int cdLote)
+        {
+            try
+            {
+                string query = @"
+                    SELECT 
+                        la.cdLoteArchivo,
+                        la.cdArchivo,
+                        la.cdEstadoArchivoLote,
+                        eal.dsEstado AS DsEstadoArchivoLote,
+                        a.dsNombreArchivo,
+                        a.dsRutaCompleta,
+                        a.dsNombreUltimaCarpeta,
+                        ri.cdResultadoIA,
+                        ri.dsTipoPlano,
+                        ri.dsExpediente,
+                        ri.dsSeccion,
+                        ri.dsManzana,
+                        ri.dsParcela,
+                        ri.dsDireccion,
+                        l.dsNombreLote
+                    FROM IAP_TD_LOTE_ARCHIVOS la
+                    INNER JOIN IAP_TD_ARCHIVOS a ON la.cdArchivo = a.cdArchivo
+                    INNER JOIN IAP_TV_ESTADOS_ARCHIVO_LOTE eal ON la.cdEstadoArchivoLote = eal.cdEstadoArchivoLote
+                    LEFT JOIN IAP_TD_RESULTADOS_IA ri ON la.cdLoteArchivo = ri.cdLoteArchivo
+                    INNER JOIN IAP_TD_LOTES l ON la.cdLote = l.cdLote
+                    WHERE la.cdLote = @cdLote
+                    ORDER BY a.dsNombreArchivo";
+
+                var parametros = new SqlParameter[]
+                {
+                    new SqlParameter("@cdLote", cdLote)
+                };
+
+                DataTable dt = _db.EjecutarConsulta(query, parametros);
+
+                var archivos = new List<ArchivoParaFinalizar>();
+                foreach (DataRow row in dt.Rows)
+                {
+                    archivos.Add(new ArchivoParaFinalizar
+                    {
+                        CdLoteArchivo = Convert.ToInt32(row["cdLoteArchivo"]),
+                        CdArchivo = Convert.ToInt32(row["cdArchivo"]),
+                        CdEstadoArchivoLote = Convert.ToInt32(row["cdEstadoArchivoLote"]),
+                        DsEstadoArchivoLote = row["DsEstadoArchivoLote"].ToString() ?? string.Empty,
+                        DsNombreArchivo = row["dsNombreArchivo"].ToString() ?? string.Empty,
+                        DsRutaCompleta = row["dsRutaCompleta"].ToString() ?? string.Empty,
+                        DsNombreUltimaCarpeta = row["dsNombreUltimaCarpeta"].ToString() ?? string.Empty,
+                        CdResultadoIA = row["cdResultadoIA"] != DBNull.Value ? Convert.ToInt32(row["cdResultadoIA"]) : (int?)null,
+                        DsTipoPlano = row["dsTipoPlano"] != DBNull.Value ? row["dsTipoPlano"].ToString() : null,
+                        DsExpediente = row["dsExpediente"] != DBNull.Value ? row["dsExpediente"].ToString() : null,
+                        DsSeccion = row["dsSeccion"] != DBNull.Value ? row["dsSeccion"].ToString() : null,
+                        DsManzana = row["dsManzana"] != DBNull.Value ? row["dsManzana"].ToString() : null,
+                        DsParcela = row["dsParcela"] != DBNull.Value ? row["dsParcela"].ToString() : null,
+                        DsDireccion = row["dsDireccion"] != DBNull.Value ? row["dsDireccion"].ToString() : null,
+                        DsNombreLote = row["dsNombreLote"].ToString() ?? string.Empty
+                    });
+                }
+
+                return archivos;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error al obtener archivos para finalización del lote {cdLote}", ex, "LoteRepository");
+                throw new Exception($"Error al obtener archivos: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Cambia el estado de un lote
+        /// </summary>
+        public void CambiarEstadoLote(int cdLote, int cdEstadoLote, int cdUsuarioModificacion)
+        {
+            try
+            {
+                string query = @"
+                    UPDATE IAP_TD_LOTES
+                    SET cdEstadoLote = @cdEstadoLote,
+                        feUltimaModificacion = GETDATE(),
+                        cdUsuarioModificacion = @cdUsuarioModificacion
+                    WHERE cdLote = @cdLote";
+
+                var parametros = new SqlParameter[]
+                {
+                    new SqlParameter("@cdLote", cdLote),
+                    new SqlParameter("@cdEstadoLote", cdEstadoLote),
+                    new SqlParameter("@cdUsuarioModificacion", cdUsuarioModificacion)
+                };
+
+                int filasAfectadas = _db.EjecutarComando(query, parametros);
+
+                if (filasAfectadas == 0)
+                {
+                    throw new Exception($"No se encontró el lote con código {cdLote}");
+                }
+
+                Logger.Info($"Estado del lote {cdLote} cambiado a {cdEstadoLote}", "LoteRepository");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error al cambiar estado del lote {cdLote}", ex, "LoteRepository");
+                throw new Exception($"Error al cambiar estado: {ex.Message}", ex);
             }
         }
 

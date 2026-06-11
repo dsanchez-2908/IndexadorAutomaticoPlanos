@@ -31,6 +31,7 @@ namespace IndexadorAutomaticoPlanos.Utils
         private readonly int _dpiDefault = 300;
         private TesseractEngine? _ocrEngine;
         private bool _disposed = false;
+        private readonly object _ocrLock = new object(); // Lock para sincronizar acceso a Tesseract
 
         public ImagenProcesador()
         {
@@ -209,34 +210,39 @@ namespace IndexadorAutomaticoPlanos.Utils
         /// </summary>
         public string EjecutarOcr(ImageSharpImage imagen)
         {
-            try
+            // CRÍTICO: Tesseract NO es thread-safe
+            // Usar lock para garantizar que solo un thread procese OCR a la vez
+            lock (_ocrLock)
             {
-                // Inicializar motor OCR si no está inicializado
-                if (_ocrEngine == null)
+                try
                 {
-                    InicializarOcr();
+                    // Inicializar motor OCR si no está inicializado
+                    if (_ocrEngine == null)
+                    {
+                        InicializarOcr();
+                    }
+
+                    Logger.Info("Ejecutando OCR sobre imagen", "ImagenProcesador");
+
+                    // Convertir Image a formato compatible con Tesseract (Pix)
+                    using var ms = new MemoryStream();
+                    imagen.Save(ms, new JpegEncoder { Quality = 100 });
+                    ms.Position = 0;
+
+                    using var pix = Pix.LoadFromMemory(ms.ToArray());
+                    using var page = _ocrEngine!.Process(pix);
+
+                    string texto = page.GetText().Trim();
+
+                    Logger.Info($"OCR completado: {texto.Length} caracteres extraídos", "ImagenProcesador");
+
+                    return texto;
                 }
-
-                Logger.Info("Ejecutando OCR sobre imagen", "ImagenProcesador");
-
-                // Convertir Image a formato compatible con Tesseract (Pix)
-                using var ms = new MemoryStream();
-                imagen.Save(ms, new JpegEncoder { Quality = 100 });
-                ms.Position = 0;
-
-                using var pix = Pix.LoadFromMemory(ms.ToArray());
-                using var page = _ocrEngine!.Process(pix);
-
-                string texto = page.GetText().Trim();
-
-                Logger.Info($"OCR completado: {texto.Length} caracteres extraídos", "ImagenProcesador");
-
-                return texto;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("Error al ejecutar OCR", ex, "ImagenProcesador");
-                throw new Exception($"Error al ejecutar OCR: {ex.Message}", ex);
+                catch (Exception ex)
+                {
+                    Logger.Error("Error al ejecutar OCR", ex, "ImagenProcesador");
+                    throw new Exception($"Error al ejecutar OCR: {ex.Message}", ex);
+                }
             }
         }
 

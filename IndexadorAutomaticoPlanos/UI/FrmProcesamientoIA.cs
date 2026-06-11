@@ -56,7 +56,7 @@ namespace IndexadorAutomaticoPlanos.UI
             // Configurar grid de lotes
             dgvLotes.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvLotes.MultiSelect = true;
-            dgvLotes.ReadOnly = true;
+            dgvLotes.ReadOnly = false; // Permitir edición para el checkbox
             dgvLotes.AllowUserToAddRows = false;
             dgvLotes.AllowUserToDeleteRows = false;
             dgvLotes.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
@@ -132,6 +132,15 @@ namespace IndexadorAutomaticoPlanos.UI
                 {
                     dgvLotes.Columns["Seleccionar"].ReadOnly = false;
                     dgvLotes.Columns["Seleccionar"].Width = 80;
+                }
+
+                // Hacer todas las demás columnas de solo lectura
+                foreach (DataGridViewColumn col in dgvLotes.Columns)
+                {
+                    if (col.Name != "Seleccionar")
+                    {
+                        col.ReadOnly = true;
+                    }
                 }
 
                 // Ocultar columna de ID
@@ -414,11 +423,8 @@ namespace IndexadorAutomaticoPlanos.UI
             {
                 Logger.Info("Iniciando procesamiento de archivo: {archivo.DsNombreArchivo}", "FrmProcesamientoIA");
 
-                // Obtener estado "Enviado a IA"
-                int estadoEnviadoIA = _loteRepo.ObtenerIdEstadoArchivoLotePorNombre("Enviado a IA");
-
                 // Actualizar estado del archivo a "Enviado a IA"
-                _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, estadoEnviadoIA);
+                _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, EstadosArchivoLote.EnviadoIA);
 
                 // Crear procesador de OpenAI
                 var procesador = new OpenAIProcesador();
@@ -444,8 +450,7 @@ namespace IndexadorAutomaticoPlanos.UI
                 else
                 {
                     Logger.Error("Archivo {archivo.DsNombreArchivo} no tiene imagen ni OCR disponible", null, "FrmProcesamientoIA");
-                    int estadoError = _loteRepo.ObtenerIdEstadoArchivoLotePorNombre("Error");
-                    _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, estadoError);
+                    _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, EstadosArchivoLote.Error);
                     return false;
                 }
 
@@ -480,8 +485,7 @@ namespace IndexadorAutomaticoPlanos.UI
                     int cdResultadoIA = _loteRepo.GuardarResultadoIA(resultadoIA);
 
                     // Actualizar estado a "Pendiente de Controlar"
-                    int estadoPendienteControlar = _loteRepo.ObtenerIdEstadoArchivoLotePorNombre("Pendiente de Controlar");
-                    _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, estadoPendienteControlar, cdResultadoIA);
+                    _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, EstadosArchivoLote.PendienteControlar, cdResultadoIA);
 
                     Logger.Info("Archivo {archivo.DsNombreArchivo} procesado exitosamente. Tokens: {resultado.Usage?.TotalTokens}", "FrmProcesamientoIA");
                     return true;
@@ -502,8 +506,7 @@ namespace IndexadorAutomaticoPlanos.UI
                     _loteRepo.GuardarResultadoIA(resultadoIA);
 
                     // Actualizar estado a "Error"
-                    int estadoError = _loteRepo.ObtenerIdEstadoArchivoLotePorNombre("Error");
-                    _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, estadoError);
+                    _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, EstadosArchivoLote.Error);
 
                     Logger.Error("Error al procesar archivo {archivo.DsNombreArchivo}: {resultado.MensajeError}", null, "FrmProcesamientoIA");
                     return false;
@@ -528,8 +531,7 @@ namespace IndexadorAutomaticoPlanos.UI
 
                     _loteRepo.GuardarResultadoIA(resultadoIA);
 
-                    int estadoError = _loteRepo.ObtenerIdEstadoArchivoLotePorNombre("Error");
-                    _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, estadoError);
+                    _loteRepo.ActualizarEstadoProcesamiento(archivo.CdLoteArchivo, EstadosArchivoLote.Error);
                 }
                 catch
                 {

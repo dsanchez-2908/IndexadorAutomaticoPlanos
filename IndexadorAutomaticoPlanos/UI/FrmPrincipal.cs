@@ -291,6 +291,44 @@ namespace IndexadorAutomaticoPlanos.UI
             }
         }
 
+        private void menuControlCalidad_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FrmControlCalidad frmControlCalidad = new FrmControlCalidad();
+                AbrirFormularioHijo(frmControlCalidad);
+                Logger.Info("Abriendo formulario de control de calidad", "FrmPrincipal");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error al abrir formulario de control de calidad", ex, "FrmPrincipal");
+                MessageBox.Show(
+                    $"Error al abrir el formulario de control de calidad:\n\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
+        private void menuFinalizarLotes_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                FrmFinalizarLotes frmFinalizarLotes = new FrmFinalizarLotes();
+                AbrirFormularioHijo(frmFinalizarLotes);
+                Logger.Info("Abriendo formulario de finalización de lotes", "FrmPrincipal");
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("Error al abrir formulario de finalización de lotes", ex, "FrmPrincipal");
+                MessageBox.Show(
+                    $"Error al abrir el formulario de finalización de lotes:\n\n{ex.Message}",
+                    "Error",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+            }
+        }
+
         /// <summary>
         /// Método auxiliar para abrir formularios MDI hijos (evita duplicados)
         /// </summary>

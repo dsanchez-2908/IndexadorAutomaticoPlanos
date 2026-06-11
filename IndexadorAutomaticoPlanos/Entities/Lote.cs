@@ -7,6 +7,7 @@ namespace IndexadorAutomaticoPlanos.Entities
     {
         public int CdLote { get; set; }
         public string DsNombreLote { get; set; } = string.Empty;
+        public string? DsCarpetaOrigen { get; set; }
         public int NuCantidadArchivos { get; set; }
         public int CdEstadoLote { get; set; }
         public DateTime FeAlta { get; set; }
@@ -16,5 +17,6 @@ namespace IndexadorAutomaticoPlanos.Entities
 
         // Propiedades de navegación (no mapeadas directamente)
         public string? DsEstadoLote { get; set; }
+        public int CantidadArchivos { get; set; }
     }
 }

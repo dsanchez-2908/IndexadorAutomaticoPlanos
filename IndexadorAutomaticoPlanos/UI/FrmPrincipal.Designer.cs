@@ -142,12 +142,14 @@ namespace IndexadorAutomaticoPlanos.UI
             this.menuValidacionLotes.Name = "menuValidacionLotes";
             this.menuValidacionLotes.Size = new System.Drawing.Size(215, 22);
             this.menuValidacionLotes.Text = "5. Validación de Lotes";
+            this.menuValidacionLotes.Click += new System.EventHandler(this.menuControlCalidad_Click);
             // 
             // menuFinalizarLotes
             // 
             this.menuFinalizarLotes.Name = "menuFinalizarLotes";
             this.menuFinalizarLotes.Size = new System.Drawing.Size(215, 22);
             this.menuFinalizarLotes.Text = "6. Finalizar Lotes";
+            this.menuFinalizarLotes.Click += new System.EventHandler(this.menuFinalizarLotes_Click);
             // 
             // menuAdministracion
             // 
